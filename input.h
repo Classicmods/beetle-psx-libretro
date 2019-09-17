@@ -1,7 +1,8 @@
 #ifndef __INPUT_H__
 #define __INPUT_H__
 
-#include "libretro.h"
+#include <boolean.h>
+#include <libretro.h>
 #include "mednafen/psx/frontio.h"
 
 // These input routines tell libretro about PlayStation peripherals
@@ -28,6 +29,13 @@ extern void input_set_player_count( unsigned players );
 
 extern unsigned input_get_player_count();
 
-extern void input_update( retro_input_state_t input_state_cb );
+void input_update(bool supports_bitmasks, retro_input_state_t input_state_cb );
+
+enum
+{
+	SETTING_GUN_INPUT_LIGHTGUN,
+	SETTING_GUN_INPUT_POINTER,
+};
+extern int gun_input_mode;
 
 #endif

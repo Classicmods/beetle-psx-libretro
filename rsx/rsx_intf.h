@@ -31,7 +31,7 @@ void rsx_intf_set_video_refresh(retro_video_refresh_t cb);
 void rsx_intf_get_system_av_info(struct retro_system_av_info *info);
 
 void rsx_intf_init(enum rsx_renderer_type type);
-bool rsx_intf_open(bool is_pal);
+bool rsx_intf_open(bool is_pal, bool force_software);
 void rsx_intf_close(void);
 void rsx_intf_refresh_variables(void);
 void rsx_intf_prepare_frame(void);
@@ -55,6 +55,8 @@ void rsx_intf_push_triangle(float p0x, float p0y, float p0w,
                             uint32_t c0, uint32_t c1, uint32_t c2,
                             uint16_t t0x, uint16_t t0y,
                             uint16_t t1x, uint16_t t1y,
+	                        uint16_t min_u, uint16_t min_v,
+	                        uint16_t max_u, uint16_t max_v,
                             uint16_t t2x, uint16_t t2y,
                             uint16_t texpage_x, uint16_t texpage_y,
                             uint16_t clut_x, uint16_t clut_y,
@@ -80,6 +82,8 @@ void rsx_intf_push_quad(float p0x, float p0y, float p0w,
                         uint16_t t1x, uint16_t t1y,
                         uint16_t t2x, uint16_t t2y,
                         uint16_t t3x, uint16_t t3y,
+	                    uint16_t min_u, uint16_t min_v,
+	                    uint16_t max_u, uint16_t max_v,
                         uint16_t texpage_x, uint16_t texpage_y,
                         uint16_t clut_x, uint16_t clut_y,
                         uint8_t texture_blend_mode,
@@ -105,6 +109,10 @@ void rsx_intf_load_image(  uint16_t x, uint16_t y,
                            uint16_t *vram,
                            uint32_t mask_test,
                            uint32_t set_mask);
+
+bool rsx_intf_read_vram(uint16_t x, uint16_t y,
+                        uint16_t w, uint16_t h,
+                        uint16_t *vram);
 
 void rsx_intf_fill_rect(uint32_t color,
                         uint16_t x, uint16_t y,

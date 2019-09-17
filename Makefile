@@ -4,6 +4,7 @@ HAVE_OPENGL = 0
 HAVE_VULKAN = 0
 HAVE_JIT = 0
 HAVE_CHD = 1
+HAVE_CDROM = 0
 
 CORE_DIR := .
 HAVE_GRIFFIN = 0
@@ -22,15 +23,15 @@ endif
 
 ifeq ($(platform),)
    platform = unix
-   ifeq ($(shell uname -a),)
+   ifeq ($(shell uname -s),)
       platform = win
-   else ifneq ($(findstring Darwin,$(shell uname -a)),)
+   else ifneq ($(findstring Darwin,$(shell uname -s)),)
       platform = osx
       arch     = intel
       ifeq ($(shell uname -p),powerpc)
          arch = ppc
       endif
-   else ifneq ($(findstring MINGW,$(shell uname -a)),)
+   else ifneq ($(findstring MINGW,$(shell uname -s)),)
       platform = win
    endif
 else ifneq (,$(findstring armv,$(platform)))
@@ -38,7 +39,7 @@ else ifneq (,$(findstring armv,$(platform)))
 endif
 
 ifneq ($(platform), osx)
-   ifeq ($(findstring Haiku,$(shell uname -a)),)
+   ifeq ($(findstring Haiku,$(shell uname -s)),)
       PTHREAD_FLAGS = -lpthread
    endif
 endif
@@ -81,7 +82,7 @@ ifneq (,$(findstring unix,$(platform)))
    ifneq ($(shell uname -p | grep -E '((i.|x)86|amd64)'),)
       IS_X86 = 1
    endif
-   LDFLAGS += $(PTHREAD_FLAGS)
+   LDFLAGS += $(PTHREAD_FLAGS) -ldl
    FLAGS   +=
    ifeq ($(HAVE_OPENGL),1)
       ifneq (,$(findstring gles,$(platform)))
@@ -91,6 +92,10 @@ ifneq (,$(findstring unix,$(platform)))
          GL_LIB := -L/usr/local/lib -lGL
       endif
    endif
+
+ifneq ($(findstring Linux,$(shell uname -s)),)
+	HAVE_CDROM = 1
+endif
 
 # OS X
 else ifeq ($(platform), osx)
@@ -114,6 +119,11 @@ else ifeq ($(platform), osx)
 
 # iOS
 else ifneq (,$(findstring ios,$(platform)))
+   ifeq ($(platform),$(filter $(platform),ios-arm64))
+   iarch := arm64
+   else
+   iarch := armv7
+   endif
    TARGET  := $(TARGET_NAME)_libretro_ios.dylib
    fpic    := -fPIC
    SHARED  := -dynamiclib
@@ -125,8 +135,9 @@ else ifneq (,$(findstring ios,$(platform)))
    ifeq ($(HAVE_OPENGL),1)
       GL_LIB := -framework OpenGLES
    endif
-   CC = cc -arch armv7 -isysroot $(IOSSDK)
-   CXX = c++ -arch armv7 -isysroot $(IOSSDK)
+
+   CC = cc -arch $(iarch) -isysroot $(IOSSDK)
+   CXX = c++ -arch $(iarch) -isysroot $(IOSSDK)
    IPHONEMINVER :=
    ifeq ($(platform),$(filter $(platform),ios9 ios-arm64))
       IPHONEMINVER = -miphoneos-version-min=8.0
@@ -137,6 +148,16 @@ else ifneq (,$(findstring ios,$(platform)))
    FLAGS   += $(IPHONEMINVER)
    CC      += $(IPHONEMINVER)
    CXX     += $(IPHONEMINVER)
+
+# tvOS
+else ifeq ($(platform), tvos-arm64)
+   TARGET := $(TARGET_NAME)_libretro_tvos.dylib
+   fpic := -fPIC
+   SHARED := -dynamiclib
+
+ifeq ($(IOSSDK),)
+   IOSSDK := $(shell xcodebuild -version -sdk appletvos Path)
+endif
 
 # QNX
 else ifeq ($(platform), qnx)
@@ -362,6 +383,7 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 		MSVC2017CompileFlags = -DWINAPI_FAMILY=WINAPI_FAMILY_DESKTOP_APP -FS
 		LDFLAGS += -MANIFEST -LTCG:incremental -NXCOMPAT -DYNAMICBASE -DEBUG -OPT:REF -INCREMENTAL:NO -SUBSYSTEM:WINDOWS -MANIFESTUAC:"level='asInvoker' uiAccess='false'" -OPT:ICF -ERRORREPORT:PROMPT -NOLOGO -TLBID:1
 		LIBS += kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib
+		HAVE_CDROM = 1
 	else ifneq (,$(findstring uwp,$(PlatformSuffix)))
 		WinPartition = uwp
 		MSVC2017CompileFlags = -DWINAPI_FAMILY=WINAPI_FAMILY_APP -D_WINDLL -D_UNICODE -DUNICODE -D__WRL_NO_DEFAULT_LIB__ -EHsc -FS
@@ -439,19 +461,21 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
     
 	export INCLUDE := $(INCLUDE);$(WindowsSDKSharedIncludeDir);$(WindowsSDKUCRTIncludeDir);$(WindowsSDKUMIncludeDir)
 	export LIB := $(LIB);$(WindowsSDKUCRTLibDir);$(WindowsSDKUMLibDir)
-	TARGET := $(TARGET_NAME)_libretro.dll $(TARGET_NAME)_libretro.lib $(TARGET_NAME)_libretro.pdb $(TARGET_NAME)_libretro.exp
+	TARGET := $(TARGET_NAME)_libretro.dll
+	TARGET_TMP := $(TARGET_NAME)_libretro.lib $(TARGET_NAME)_libretro.pdb $(TARGET_NAME)_libretro.exp
 	PSS_STYLE :=2
 	LDFLAGS += -DLL
 
 # Windows
 else
    TARGET  := $(TARGET_NAME)_libretro.dll
-   CC       = gcc
-   CXX      = g++
+   CC      ?= gcc
+   CXX     ?= g++
    IS_X86   = 1
    SHARED  := -shared -Wl,--no-undefined -Wl,--version-script=link.T
    LDFLAGS += -static-libgcc -static-libstdc++ -lwinmm
    FLAGS   += -DHAVE__MKDIR
+	HAVE_CDROM = 1
    
    ifeq ($(HAVE_OPENGL),1)
       GL_LIB := -lopengl32
@@ -613,6 +637,6 @@ clean:
 	@echo rm -f *.o
 	@rm -f $(DEPS)
 	@echo rm -f *.d
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(TARGET_TMP)
 	
 .PHONY: clean

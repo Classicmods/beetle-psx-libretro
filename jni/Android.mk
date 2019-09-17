@@ -30,12 +30,23 @@ ifeq ($(HAVE_HW),1)
     HAVE_VULKAN := 1
     FLAGS       += -DHAVE_VULKAN
   endif
+  FLAGS += -DHAVE_HW
 endif
 
 include $(CORE_DIR)/Makefile.common
 
 ifeq ($(HAVE_HW),1)
-  INCFLAGS += -I$(CORE_DIR)/parallel-psx -I$(CORE_DIR)/parallel-psx/atlas -I$(CORE_DIR)/parallel-psx/vulkan -I$(CORE_DIR)/parallel-psx/renderer -I$(CORE_DIR)/parallel-psx/khronos/include -I$(CORE_DIR)/parallel-psx/glsl/prebuilt -I$(CORE_DIR)/parallel-psx/vulkan/SPIRV-Cross -I$(CORE_DIR)/parallel-psx/vulkan/SPIRV-Cross/include
+  INCFLAGS += -I$(CORE_DIR)/parallel-psx \
+				  -I$(CORE_DIR)/parallel-psx/atlas \
+				  -I$(CORE_DIR)/parallel-psx/vulkan \
+				  -I$(CORE_DIR)/parallel-psx/renderer \
+				  -I$(CORE_DIR)/parallel-psx/khronos/include \
+				  -I$(CORE_DIR)/parallel-psx/glsl/prebuilt \
+				  -I$(CORE_DIR)/parallel-psx/SPIRV-Cross \
+				  -I$(CORE_DIR)/parallel-psx/vulkan/SPIRV-Cross \
+				  -I$(CORE_DIR)/parallel-psx/vulkan/SPIRV-Cross/include \
+				  -I$(CORE_DIR)/parallel-psx/util \
+				  -I$(CORE_DIR)/parallel-psx/volk
 endif
 
 COREFLAGS := -funroll-loops $(INCFLAGS) -DMEDNAFEN_VERSION=\"0.9.26\" -DMEDNAFEN_VERSION_NUMERIC=926 -DPSS_STYLE=1 -D__LIBRETRO__ -D_LOW_ACCURACY_ -DINLINE="inline" $(FLAGS)
@@ -51,6 +62,7 @@ LOCAL_MODULE       := retro
 LOCAL_SRC_FILES    := $(SOURCES_CXX) $(SOURCES_C)
 LOCAL_CFLAGS       := $(COREFLAGS)
 LOCAL_CXXFLAGS     := $(COREFLAGS) -std=c++11
-LOCAL_LDFLAGS      := -Wl,-version-script=$(CORE_DIR)/link.T
+LOCAL_LDFLAGS      := -Wl,-version-script=$(CORE_DIR)/link.T -ldl
+LOCAL_LDLIBS       := -llog
 LOCAL_CPP_FEATURES := exceptions
 include $(BUILD_SHARED_LIBRARY)

@@ -637,12 +637,12 @@ uint32 NO_INLINE PS_CPU::Exception(uint32 code, uint32 PC, const uint32 NP, cons
 template<bool DebugMode, bool BIOSPrintMode, bool ILHMode>
 pscpu_timestamp_t PS_CPU::RunReal(pscpu_timestamp_t timestamp_in)
 {
- register pscpu_timestamp_t timestamp = timestamp_in;
+ pscpu_timestamp_t timestamp = timestamp_in;
 
- register uint32 PC;
- register uint32 new_PC;
- register uint32 LDWhich;
- register uint32 LDValue;
+ uint32 PC;
+ uint32 new_PC;
+ uint32 LDWhich;
+ uint32 LDValue;
  
  //printf("%d %d\n", gte_ts_done, muldiv_ts_done);
 
@@ -2131,6 +2131,9 @@ pscpu_timestamp_t PS_CPU::RunReal(pscpu_timestamp_t timestamp_in)
 	uint32 result = GPR[rs] - GPR[rt];
 	bool ep = (((GPR[rs] ^ GPR[rt])) & (GPR[rs] ^ result)) & 0x80000000;
 
+	if (PGXP_GetModes() & PGXP_MODE_CPU)
+		PGXP_CPU_SUB(instr, result, GPR[rs], GPR[rt]);
+
 	DO_LDS();
 
 	if(MDFN_UNLIKELY(ep))
@@ -2156,6 +2159,9 @@ pscpu_timestamp_t PS_CPU::RunReal(pscpu_timestamp_t timestamp_in)
 	GPR_DEPRES_END
 
 	uint32 result = GPR[rs] - GPR[rt];
+
+	if (PGXP_GetModes() & PGXP_MODE_CPU)
+		PGXP_CPU_SUBU(instr, result, GPR[rs], GPR[rt]);
 
 	DO_LDS();
 
@@ -2188,6 +2194,9 @@ pscpu_timestamp_t PS_CPU::RunReal(pscpu_timestamp_t timestamp_in)
 
 	uint32 result = GPR[rs] ^ GPR[rt];
 
+	if (PGXP_GetModes() & PGXP_MODE_CPU)
+		PGXP_CPU_XOR(instr, result, GPR[rs], GPR[rt]);
+
 	DO_LDS();
 
 	GPR[rd] = result;
@@ -2206,6 +2215,9 @@ pscpu_timestamp_t PS_CPU::RunReal(pscpu_timestamp_t timestamp_in)
 	GPR_DEPRES_END
 
 	uint32 result = GPR[rs] ^ immediate;
+
+	if (PGXP_GetModes() & PGXP_MODE_CPU)
+		PGXP_CPU_XORI(instr, result, GPR[rs]);
 
 	DO_LDS();
 
@@ -2235,6 +2247,9 @@ pscpu_timestamp_t PS_CPU::RunReal(pscpu_timestamp_t timestamp_in)
 
 	LDWhich = rt;
 	LDValue = (int32)ReadMemory<int8>(timestamp, address);
+
+	if (PGXP_GetModes() & PGXP_MODE_MEMORY)
+		PGXP_CPU_LB(instr, LDValue, address);
     END_OPF;
 
     //
@@ -2404,6 +2419,9 @@ pscpu_timestamp_t PS_CPU::RunReal(pscpu_timestamp_t timestamp_in)
 	}
 	else
 	 WriteMemory<uint16>(timestamp, address, GPR[rt]);
+
+	if (PGXP_GetModes() & PGXP_MODE_MEMORY)
+		PGXP_CPU_SH(instr, GPR[rt], address);
 
 	DO_LDS();
     END_OPF;

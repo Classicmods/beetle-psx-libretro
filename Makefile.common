@@ -25,8 +25,6 @@ ifeq ($(HAVE_OPENGL), 1)
 
    SOURCES_C += $(LIBRETRO_DIR)/glsm/glsm.c \
                 $(LIBRETRO_DIR)/glsym/rglgen.c
-
-   SOURCES_CXX += $(CORE_DIR)/rsx/rsx_lib_gl.cpp
 endif
 
 INCFLAGS := -I$(CORE_DIR) \
@@ -205,12 +203,10 @@ ifneq ($(HAVE_GRIFFIN), 1)
                   $(MEDNAFEN_DIR)/video/surface.cpp \
                   $(CORE_DIR)/libretro.cpp \
 						$(MEDNAFEN_DIR)/mednafen-endian.cpp \
-                  $(CORE_DIR)/input.cpp
+                  $(CORE_DIR)/input.cpp \
+						$(CORE_DIR)/rsx/rsx_intf.cpp
 
-   SOURCES_C +=   $(CORE_DIR)/rsx/rsx_lib_soft.c \
-                  $(MEDNAFEN_DIR)/md5.c
-
-   SOURCES_CXX += $(CORE_DIR)/rsx/rsx_intf.cpp
+   SOURCES_C +=   $(MEDNAFEN_DIR)/md5.c
 
    ifneq ($(RSX_DUMP),)
       SOURCES_CXX += $(CORE_DIR)/rsx/rsx_dump.cpp
@@ -222,17 +218,21 @@ ifneq ($(HAVE_GRIFFIN), 1)
       SOURCES_CXX += $(wildcard $(CORE_DIR)/parallel-psx/renderer/*.cpp) \
                      $(wildcard $(CORE_DIR)/parallel-psx/atlas/*.cpp) \
                      $(wildcard $(CORE_DIR)/parallel-psx/vulkan/*.cpp) \
-                     $(CORE_DIR)/parallel-psx/vulkan/SPIRV-Cross/spirv_cross.cpp \
-                     $(CORE_DIR)/rsx/rsx_lib_vulkan.cpp
+                     $(wildcard $(CORE_DIR)/parallel-psx/SPIRV-Cross/*.cpp) \
+                     $(CORE_DIR)/parallel-psx/util/timer.cpp
 
-      EXTRA_INCLUDES += -I$(CORE_DIR)/parallel-psx/vulkan/SPIRV-Cross \
+      SOURCES_C += $(wildcard $(CORE_DIR)/parallel-psx/volk/*.c)
+
+      EXTRA_INCLUDES += -I$(CORE_DIR)/parallel-psx/SPIRV-Cross \
                         -I$(CORE_DIR)/parallel-psx/renderer \
                         -I$(CORE_DIR)/parallel-psx/khronos/include \
                         -I$(CORE_DIR)/parallel-psx/atlas \
                         -I$(CORE_DIR)/parallel-psx/vulkan \
+                        -I$(CORE_DIR)/parallel-psx/util \
+                        -I$(CORE_DIR)/parallel-psx/volk \
                         -I$(CORE_DIR)/parallel-psx/glsl/prebuilt
 
-      CXXFLAGS += -std=c++11
+      CXXFLAGS += -std=c++11 -DHAVE_LIBRETRO
       ifneq ($(VULKAN_DEBUG),)
          FLAGS += -DVULKAN_DEBUG
       endif
@@ -241,15 +241,31 @@ ifneq ($(HAVE_GRIFFIN), 1)
    ifneq ($(STATIC_LINKING), 1)
       SOURCES_C +=   $(LIBRETRO_DIR)/streams/file_stream.c \
                      $(LIBRETRO_DIR)/streams/file_stream_transforms.c \
+                     $(LIBRETRO_DIR)/file/file_path.c \
+                     $(LIBRETRO_DIR)/file/retro_dirent.c \
                      $(LIBRETRO_DIR)/vfs/vfs_implementation.c \
+                     $(LIBRETRO_DIR)/lists/dir_list.c \
+                     $(LIBRETRO_DIR)/lists/string_list.c \
                      $(LIBRETRO_DIR)/string/stdstring.c \
                      $(LIBRETRO_DIR)/compat/compat_strl.c \
                      $(LIBRETRO_DIR)/compat/fopen_utf8.c \
                      $(LIBRETRO_DIR)/compat/compat_strcasestr.c \
                      $(LIBRETRO_DIR)/compat/compat_posix_string.c \
                      $(LIBRETRO_DIR)/encodings/encoding_utf.c \
+                     $(LIBRETRO_DIR)/memmap/memalign.c \
                      $(LIBRETRO_DIR)/hash/rhash.c
 
+      ifeq ($(HAVE_CDROM), 1)
+				 CFLAGS += -DHAVE_CDROM
+				 CXXFLAGS += -DHAVE_CDROM
+         SOURCES_C += $(LIBRETRO_DIR)/cdrom/cdrom.c \
+         							$(LIBRETRO_DIR)/vfs/vfs_implementation_cdrom.c
+
+         ifeq ($(CDROM_DEBUG), 1)
+				    CFLAGS += -DCDROM_DEBUG
+				    CXXFLAGS += -DCDROM_DEBUG
+				 endif
+      endif
 
       ifeq ($(NEED_THREADING), 1)
          SOURCES_C += $(LIBRETRO_DIR)/rthreads/rthreads.c
