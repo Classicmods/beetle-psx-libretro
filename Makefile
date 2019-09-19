@@ -97,6 +97,37 @@ ifneq ($(findstring Linux,$(shell uname -s)),)
 	HAVE_CDROM = 1
 endif
 
+#PlayStation Classic
+ifeq ($(platform), classic_armv8_a35)
+        TARGET := $(TARGET_NAME)_libretro.so
+        fpic := -fPIC
+        SHARED := -shared -Wl,--version-script=link.T -Wl,--no-undefined -fPIC
+        CFLAGS += -Ofast \
+        -flto=4 -fwhole-program -fuse-linker-plugin \
+        -fdata-sections -ffunction-sections -Wl,--gc-sections \
+        -fno-stack-protector -fno-ident -fomit-frame-pointer \
+        -falign-functions=1 -falign-jumps=1 -falign-loops=1 \
+        -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-unroll-loops \
+        -fmerge-all-constants -fno-math-errno \
+        -marm -mtune=cortex-a35 -mfpu=neon-fp-armv8 -mfloat-abi=hard
+        CXXFLAGS += $(CFLAGS)
+        CPPFLAGS += $(CFLAGS)
+        ASFLAGS += $(CFLAGS)
+        HAVE_NEON = 1
+        ARCH = arm
+        ifeq ($(HAVE_OPENGL),1)
+        GL_LIB := -lGLESv2
+        endif
+        FLAGS += $(PTHREAD_FLAGS) -DHAVE_MKDIR
+        FLAGS += -marm -mtune=cortex-a35 -mfpu=neon-fp-armv8 -mfloat-abi=hard
+	CFLAGS += -march=armv8-a
+	LDFLAGS += -static-libgcc -static-libstdc++ -lpthread
+endif
+
+ifneq ($(findstring Linux,$(shell uname -s)),)
+	HAVE_CDROM = 1
+endif
+
 # OS X
 else ifeq ($(platform), osx)
    TARGET  := $(TARGET_NAME)_libretro.dylib
