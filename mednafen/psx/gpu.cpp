@@ -67,6 +67,8 @@
    Vertical start and end can be changed during active display, with effect(though it needs to be vs0->ve0->vs1->ve1->..., vs0->vs1->ve0 doesn't apparently do anything
    different from vs0->ve0.
    */
+extern int32 EventCycles;
+
 static const int8 dither_table[4][4] =
 {
    { -4,  0, -3,  1 },
@@ -541,16 +543,27 @@ static void UpdateDisplayMode(void)
 
    uint16_t yres = GPU.VertEnd - GPU.VertStart;
 
+   bool is_pal_mode = false;
+   if((GPU.DisplayMode & DISP_PAL) == DISP_PAL)
+      is_pal_mode = true;
+
    // Both 2nd bit and 5th bit have to be enabled to use interlacing properly.
+   bool is_480i_mode = false;
    if((GPU.DisplayMode & (DISP_INTERLACED | DISP_VERT480)) == (DISP_INTERLACED | DISP_VERT480))
+   {
       yres *= 2;
+      is_480i_mode = true;
+   }
 
    unsigned pixelclock_divider;
+
+   enum width_modes curr_width_mode;
 
    if ((GPU.DisplayMode >> 6) & 1)
    {
       // HRes ~ 368pixels
       pixelclock_divider = 7;
+      curr_width_mode = WIDTH_MODE_368;
    }
    else
    {
@@ -559,18 +572,22 @@ static void UpdateDisplayMode(void)
          case 0:
             // Hres ~ 256pixels
             pixelclock_divider = 10;
+            curr_width_mode = WIDTH_MODE_256;
             break;
          case 1:
             // Hres ~ 320pixels
             pixelclock_divider = 8;
+            curr_width_mode = WIDTH_MODE_320;
             break;
          case 2:
             // Hres ~ 512pixels
             pixelclock_divider = 5;
+            curr_width_mode = WIDTH_MODE_512;
             break;
          default:
             // Hres ~ 640pixels
             pixelclock_divider = 4;
+            curr_width_mode = WIDTH_MODE_640;
             break;
       }
    }
@@ -588,7 +605,10 @@ static void UpdateDisplayMode(void)
          GPU.DisplayFB_XStart,
          GPU.DisplayFB_YStart,
          xres, yres,
-         depth_24bpp);
+         depth_24bpp,
+         is_pal_mode, 
+         is_480i_mode,
+         curr_width_mode);
 }
 
 /* Forward decls */
@@ -1112,6 +1132,8 @@ void GPU_Write(const int32_t timestamp, uint32_t A, uint32_t V)
             GPU_SoftReset();
              rsx_intf_set_draw_area(GPU.ClipX0, GPU.ClipY0,
                                     GPU.ClipX1, GPU.ClipY1);
+             rsx_intf_set_horizontal_display_range(GPU.HorizStart, GPU.HorizEnd); //0x200, 0xC00 set by GPU_SoftReset()
+             rsx_intf_set_vertical_display_range(GPU.VertStart, GPU.VertEnd); //0x10, 0x100 set by GPU_SoftReset()
              UpdateDisplayMode();
             break;
 
@@ -1145,11 +1167,13 @@ void GPU_Write(const int32_t timestamp, uint32_t A, uint32_t V)
          case 0x06:  // Horizontal display range
             GPU.HorizStart = V & 0xFFF;
             GPU.HorizEnd = (V >> 12) & 0xFFF;
+            rsx_intf_set_horizontal_display_range(GPU.HorizStart, GPU.HorizEnd);
             break;
 
          case 0x07:
             GPU.VertStart = V & 0x3FF;
             GPU.VertEnd = (V >> 10) & 0x3FF;
+            rsx_intf_set_vertical_display_range(GPU.VertStart, GPU.VertEnd);
             break;
 
          case 0x08:
@@ -1384,8 +1408,8 @@ int32_t GPU_Update(const int32_t sys_timestamp)
 
    GPU.DrawTimeAvail += sys_clocks << (1 + psx_gpu_overclock_shift);
 
-   if(GPU.DrawTimeAvail > (256 << psx_gpu_overclock_shift))
-      GPU.DrawTimeAvail = (256 << psx_gpu_overclock_shift);
+   if(GPU.DrawTimeAvail > (2*EventCycles << psx_gpu_overclock_shift))
+      GPU.DrawTimeAvail = (2*EventCycles << psx_gpu_overclock_shift);
 
    if(GPU_BlitterFIFO.in_count && GPU.InCmd != INCMD_FBREAD)
       ProcessFIFO(GPU_BlitterFIFO.in_count);
@@ -1699,6 +1723,9 @@ int32_t GPU_Update(const int32_t sys_timestamp)
                      for(x = udx_end; x < udmw; x++)
                         dest[x] = 0;
                   }
+
+                  //reset dest back to i=0 for PSX_GPULineHook call
+                  dest = GPU.surface->pixels + ((dest_line << GPU.upscale_shift) * GPU.surface->pitch32);
                }
 
                //if(GPU.scanline == 64)
@@ -1708,16 +1735,30 @@ int32_t GPU_Update(const int32_t sys_timestamp)
                pix_clock_offset = (488 - 146) / DotClockRatios[dmc];
                pix_clock = (GPU.HardwarePALType ? 53203425 : 53693182) / DotClockRatios[dmc];
                pix_clock_div = DotClockRatios[dmc];
+
+               PSX_GPULineHook(sys_timestamp,
+                               sys_timestamp - ((uint64)gpu_clocks * 65536) / GPU.GPUClockRatio,
+                               GPU.scanline == 0,
+                               dest,
+                               &GPU.surface->format,
+                               dmw_width,
+                               pix_clock_offset,
+                               pix_clock,
+                               pix_clock_div,
+                               GPU.surface->pitch32,
+                               (1 << GPU.upscale_shift));
             }
-            // XXX fixme when upscaling is active
-            PSX_GPULineHook(sys_timestamp,
-                  sys_timestamp - ((uint64)gpu_clocks * 65536) / GPU.GPUClockRatio, GPU.scanline == 0,
-                  dest,
-                  &GPU.surface->format,
-                  dmw_width,
-                  pix_clock_offset,
-                  pix_clock,
-                  pix_clock_div);
+            else
+            {
+               PSX_GPULineHook(sys_timestamp,
+                               sys_timestamp - ((uint64)gpu_clocks * 65536) / GPU.GPUClockRatio,
+                               GPU.scanline == 0,
+                               NULL,
+                               &GPU.surface->format,
+                               0, 0, 0, 0,
+                               GPU.surface->pitch32,
+                               (1 << GPU.upscale_shift));
+            }
 
             if(!GPU.InVBlank)
                GPU.DisplayFB_CurYOffset = (GPU.DisplayFB_CurYOffset + 1) & 0x1FF;
@@ -1741,7 +1782,7 @@ TheEnd:
    next_dt = (((int64)next_dt << 16) - GPU.GPUClockCounter + GPU.GPUClockRatio - 1) / GPU.GPUClockRatio;
 
    next_dt = std::max<int32>(1, next_dt);
-   next_dt = std::min<int32>(128, next_dt);
+   next_dt = std::min<int32>(EventCycles, next_dt);
 
    //printf("%d\n", next_dt);
 
@@ -1853,6 +1894,9 @@ void GPU_RestoreStateP3(void)
    rsx_intf_load_image( 0,    0,
                         1024, 512,
                         GPU.vram, false, false);
+
+   rsx_intf_set_horizontal_display_range(GPU.HorizStart, GPU.HorizEnd);
+   rsx_intf_set_vertical_display_range(GPU.VertStart, GPU.VertEnd);
 
    UpdateDisplayMode();
 }
