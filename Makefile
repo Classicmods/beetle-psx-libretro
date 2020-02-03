@@ -133,6 +133,7 @@ ifeq ($(platform), classic_armv8_a35)
         ASFLAGS += $(CFLAGS)
         HAVE_NEON = 1
         ARCH = arm
+	HAVE_LIGHTREC = 1
         ifeq ($(HAVE_OPENGL),1)
         GL_LIB := -lGLESv2
         endif
