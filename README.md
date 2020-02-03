@@ -1,5 +1,4 @@
-[![Build Status](https://travis-ci.org/libretro/beetle-psx-libretro.svg?branch=master)](https://travis-ci.org/libretro/beetle-psx-libretro)
-[![Build status](https://ci.appveyor.com/api/projects/status/qd1ew088woadbqhc/branch/master?svg=true)](https://ci.appveyor.com/project/bparker06/beetle-psx-libretro/branch/master)
+[![Build Status](https://travis-ci.org/Classicmods/beetle-psx-libretro.svg?branch=master)](https://travis-ci.org/Classicmods/beetle-psx-libretro)
 
 # Beetle PSX libretro
 
