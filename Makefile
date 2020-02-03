@@ -5,7 +5,7 @@ HAVE_VULKAN = 0
 HAVE_JIT = 0
 HAVE_CHD = 1
 HAVE_CDROM = 0
-HAVE_LIGHTREC = 0
+HAVE_LIGHTREC = 1
 THREADED_RECOMPILER = 1
 LIGHTREC_DEBUG = 0
 
@@ -133,7 +133,6 @@ ifeq ($(platform), classic_armv8_a35)
         ASFLAGS += $(CFLAGS)
         HAVE_NEON = 1
         ARCH = arm
-	HAVE_LIGHTREC = 1
         ifeq ($(HAVE_OPENGL),1)
         GL_LIB := -lGLESv2
         endif
